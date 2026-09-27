@@ -1,0 +1,105 @@
+#include <stdio.h>
+#include <time.h>
+#include <string.h>
+
+/* A Record Data Type */
+struct Transaction {
+    char AccountType[20];
+    float cash;
+    char date[100];
+
+};
+
+struct Accounts{
+    int accountnumber;
+    char Name[100];
+    int PIN;
+    float cash;
+    float loan;
+    char accountype[20];
+    char CNIC[100];
+    char Email[100];
+    struct Transaction History[100];
+    float InterestRate;
+    int YearsActive;
+
+};
+
+
+/* Global variables */
+struct Accounts Bank[1000];
+int Available = 1000;
+int count = 0;
+
+void AddAccount(){
+      if (Available ==0 ){
+        printf("We are sorry but the bank doesn't have any space for account creation\n");
+    }
+    else{printf("Do You Want to create a Saving or Digital Account\n");
+        fgets(Bank[count].accountype, sizeof(Bank[count].accountype), stdin);
+        printf("Enter the Name for the Account: \n");
+        fgets(Bank[count].Name, sizeof(Bank[count].Name), stdin);
+        printf("Enter Your CNIC\n");
+        scanf("%s",  Bank[count].CNIC);
+        int valid;
+        for (int i = 0; Bank[count].CNIC[i] != '\0'; i++){         /*CNIC verification*/
+                 if (Bank[count].CNIC[i] < '0' || Bank[count].CNIC[i] > '9'){
+                     valid = 0;
+                     break;
+                 }
+                 else{
+                    valid = 1;
+                 }
+            }
+        while (valid == 0 || strlen(Bank[count].CNIC) != 13){
+            printf("Invalid CNIC. Enter numbers only and exactly 13 digits:\n");
+            scanf("%s", Bank[count].CNIC);
+            for (int i = 0; Bank[count].CNIC[i] != '\0'; i++){
+                 if (Bank[count].CNIC[i] < '0' || Bank[count].CNIC[i] > '9'){
+                     valid = 0;
+                     break;
+                 }
+                 else{
+                    valid = 1;
+                 }
+            }    
+        }
+        int valid2 = 0;
+        printf("Enter your email address (Gmail only): \n");
+        scanf("%s", Bank[count].Email);
+
+        while (valid2 == 0){        /*Email Verification*/
+            int len = strlen(Bank[count].Email);
+            if (len <= 10){
+                valid2= 0;
+            }
+            else if(strcmp(&Bank[count].Email[len-10], "@gmail.com") != 0){
+                valid2 = 0;
+            }
+            else{
+                valid2 = 1;
+            }
+            if (valid2 == 0){
+                printf("Invalid Email Address. Enter again:\n");
+                scanf("%s", Bank[count].Email);
+            } 
+        }
+        printf("Enter your initial deposit: \n");
+        scanf("%f", &Bank[count].cash);
+        while (Bank[count].cash <1000){
+            printf("Minimum deposit should be 1000 \n");
+            scanf("%f",  &Bank[count].cash);
+        }
+          printf("Account Created, Welcome %s", Bank[count].Name);
+    }
+    Available--;
+    count++;
+};
+
+
+int main() {
+    AddAccount();
+    printf("%d\n",Available);
+    printf("%d\n",count, "\n");
+    return 0;
+}
