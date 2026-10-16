@@ -2,10 +2,15 @@
 #include <time.h>
 #include <string.h>
 #include <stdlib.h>
+#include <ctype.h>
 
 #define MAX_ACCOUNTS 1000
+#define MAX_HISTORY 100
+#define DATA_FILE "bank.dat"
+#define ADMIN_FILE "admin.dat"
+#define SAVINGS_RATE 5.0f
+#define LOAN_LIMIT_TIMES 2
 
-/* A Record Data Type */
 struct Transaction {
     char AccountType[20];
     float cash;
@@ -21,26 +26,33 @@ struct Accounts {
     char accountype[20];
     char CNIC[100];
     char Email[100];
-    struct Transaction History[100];
+    char Phone[20];
+    struct Transaction History[MAX_HISTORY];
+    int HistoryCount;
     float InterestRate;
     int YearsActive;
+    int Active;
 };
 
-/* Global variables */
+struct Admin {
+    char username[50];
+    unsigned int passwordHash;
+};
+
+struct Admin admin;
 struct Accounts Bank[MAX_ACCOUNTS];
 int Available = MAX_ACCOUNTS;
 int count = 0;
 
-/* Reads one line safely and removes the trailing newline */
 void readLine(char *buffer, int size) {
     if (fgets(buffer, size, stdin) == NULL) {
-        buffer[0] = '\0';
-        return;
+
+        printf("\nInput closed. Exiting.\n");
+        exit(0);
     }
     buffer[strcspn(buffer, "\n")] = '\0';
 }
 
-/* Reads a number (float) safely, keeps asking until valid */
 float readFloat() {
     char line[100];
     char *end;
@@ -55,7 +67,6 @@ float readFloat() {
     }
 }
 
-/* Reads a whole number safely, keeps asking until valid */
 int readInt() {
     char line[100];
     char *end;
@@ -70,7 +81,6 @@ int readInt() {
     }
 }
 
-/* Returns 1 if the string has only digits */
 int onlyDigits(const char *s) {
     if (s[0] == '\0') return 0;
     for (int i = 0; s[i] != '\0'; i++) {
@@ -79,106 +89,117 @@ int onlyDigits(const char *s) {
     return 1;
 }
 
-/* Returns 1 if the email ends with @gmail.com and has something before it */
 int validGmail(const char *email) {
     int len = strlen(email);
     if (len <= 10) return 0;
     return strcmp(&email[len - 10], "@gmail.com") == 0;
 }
 
-void AddAccount() {
-    if (Available == 0) {
-        printf("We are sorry but the bank doesn't have any space for account creation\n");
-        return;
-    }
-
-    struct Accounts *acc = &Bank[count];
-
-    /* Account type */
-    printf("Do you want to create a Saving or Digital Account?\n");
-    readLine(acc->accountype, sizeof(acc->accountype));
-
-    /* Name */
-    printf("Enter the Name for the Account: \n");
-    readLine(acc->Name, sizeof(acc->Name));
-
-    /* CNIC verification */
-    printf("Enter your CNIC (13 digits, no dashes):\n");
-    readLine(acc->CNIC, sizeof(acc->CNIC));
-    while (!onlyDigits(acc->CNIC) || strlen(acc->CNIC) != 13) {
-        printf("Invalid CNIC. Enter numbers only and exactly 13 digits:\n");
-        readLine(acc->CNIC, sizeof(acc->CNIC));
-    }
-
-    /* Email verification */
-    printf("Enter your email address (Gmail only): \n");
-    readLine(acc->Email, sizeof(acc->Email));
-    while (!validGmail(acc->Email)) {
-        printf("Invalid Email Address. Enter again:\n");
-        readLine(acc->Email, sizeof(acc->Email));
-    }
-
-    /* PIN */
-    printf("Set a 4 digit PIN:\n");
-    acc->PIN = readInt();
-    while (acc->PIN < 1000 || acc->PIN > 9999) {
-        printf("PIN must be exactly 4 digits. Enter again:\n");
-        acc->PIN = readInt();
-    }
-
-    /* Initial deposit */
-    printf("Enter your initial deposit: \n");
-    acc->cash = readFloat();
-    while (acc->cash < 1000) {
-        printf("Minimum deposit should be 1000 \n");
-        acc->cash = readFloat();
-    }
-
-    /* Automatic account number */
-    acc->accountnumber = 1001 + count;
-    acc->loan = 0;
-
-    printf("Account Created, Welcome %s\n", acc->Name);
-    printf("Your account number is %d\n", acc->accountnumber);
-
-    Available--;
-    count++;
-}
-
-/* Check the balance of an account by searching for its account number */
-void Inquiry() {
-    if (count == 0) {
-        printf("There are no accounts in the bank yet.\n");
-        return;
-    }
-
-    printf("Enter the account number:\n");
-    int number = readInt();
-
-    for (int i = 0; i < count; i++) {
-        if (Bank[i].accountnumber == number) {
-            printf("Account Number: %d\n", Bank[i].accountnumber);
-            printf("Account Holder: %s\n", Bank[i].Name);
-            printf("Account Type:   %s\n", Bank[i].accountype);
-            printf("Current Balance: %.2f\n", Bank[i].cash);
-            return;
+int containsIgnoreCase(const char *text, const char *needle) {
+    int n = strlen(needle);
+    int t = strlen(text);
+    if (n == 0) return 0;
+    for (int i = 0; i + n <= t; i++) {
+        int j;
+        for (j = 0; j < n; j++) {
+            if (tolower((unsigned char)text[i + j]) != tolower((unsigned char)needle[j])) break;
         }
+        if (j == n) return 1;
     }
-
-    printf("No account found with account number %d\n", number);
-}
-
-int main() {
-    int choice;
-    do {
-        printf("\n1. Add Account\n2. Balance Inquiry\n0. Exit\nChoose an option:\n");
-        choice = readInt();
-        switch (choice) {
-            case 1: AddAccount(); break;
-            case 2: Inquiry(); break;
-            case 0: printf("Goodbye\n"); break;
-            default: printf("Invalid option\n");
-        }
-    } while (choice != 0);
     return 0;
+}
+
+int confirm(const char *question) {
+    char line[20];
+    printf("%s (y/n):\n", question);
+    readLine(line, sizeof(line));
+    return tolower((unsigned char)line[0]) == 'y';
+}
+
+void promptName(char *dest, int size) {
+    printf("Enter the Name for the Account: \n");
+    readLine(dest, size);
+    while (dest[0] == '\0') {
+        printf("Name cannot be empty. Enter again:\n");
+        readLine(dest, size);
+    }
+}
+
+void promptCNIC(char *dest, int size) {
+    printf("Enter your CNIC (13 digits, no dashes):\n");
+    readLine(dest, size);
+    while (!onlyDigits(dest) || strlen(dest) != 13) {
+        printf("Invalid CNIC. Enter numbers only and exactly 13 digits:\n");
+        readLine(dest, size);
+    }
+}
+
+void promptEmail(char *dest, int size) {
+    printf("Enter your email address (Gmail only): \n");
+    readLine(dest, size);
+    while (!validGmail(dest)) {
+        printf("Invalid Email Address. Enter again:\n");
+        readLine(dest, size);
+    }
+}
+
+void promptPhone(char *dest, int size) {
+    printf("Enter your phone number (digits only, 10 to 15 digits):\n");
+    readLine(dest, size);
+    while (!onlyDigits(dest) || strlen(dest) < 10 || strlen(dest) > 15) {
+        printf("Invalid phone number. Enter again:\n");
+        readLine(dest, size);
+    }
+}
+
+int saveData() {
+    FILE *f = fopen(DATA_FILE, "wb");
+    if (f == NULL) {
+        printf("Warning: could not save data to %s\n", DATA_FILE);
+        return 0;
+    }
+    fwrite(&count, sizeof(int), 1, f);
+    fwrite(Bank, sizeof(struct Accounts), count, f);
+    fclose(f);
+    return 1;
+}
+
+void loadData() {
+    FILE *f = fopen(DATA_FILE, "rb");
+    if (f == NULL) {
+        printf("No saved data found. Starting with an empty bank.\n");
+        return;
+    }
+    int saved = 0;
+    if (fread(&saved, sizeof(int), 1, f) != 1 || saved < 0 || saved > MAX_ACCOUNTS) {
+        printf("Saved data file is damaged. Starting with an empty bank.\n");
+        fclose(f);
+        return;
+    }
+    int read = fread(Bank, sizeof(struct Accounts), saved, f);
+    fclose(f);
+    if (read != saved) {
+        printf("Saved data file is incomplete. Starting with an empty bank.\n");
+        return;
+    }
+    count = saved;
+    Available = MAX_ACCOUNTS - count;
+    printf("Loaded %d account(s) from file.\n", count);
+}
+
+unsigned int hashPassword(const char *s) {
+    unsigned int hash = 5381;
+    int c;
+    while ((c = (unsigned char)*s++) != 0) {
+        hash = hash * 33 + c;
+    }
+    return hash;
+}
+
+int loadAdmin() {
+    FILE *f = fopen(ADMIN_FILE, "rb");
+    if (f == NULL) return 0;
+    int ok = fread(&admin, sizeof(struct Admin), 1, f) == 1;
+    fclose(f);
+    return ok;
 }
