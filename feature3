@@ -1,0 +1,70 @@
+void fundtransfer()
+{
+    if(count==0)
+    {
+        printf("\nNo accounts available");
+        return;
+    }
+    printf("\n-------Fund Transfer------");
+    printf("\nEnter your account number:");
+    int srcacc= readInt();
+    int srcIndex= -1;
+    for(int i=0; i<count;i++)
+    {
+        if(Bank[i].accountnumber==srcacc)
+        {
+            srcIndex = i;
+            break;
+        }
+    
+    }
+    if(srcIndex==-1 || !Bank[srcIndex].Active)
+    {
+        printf("\nAccount not found or inactive");
+        return;
+    }
+    printf("\nEnter your PIN: ");
+    int pin = readInt();
+    if(Bank[srcIndex].PIN != pin)
+    {
+        printf("\nIncorrect PIN! Transfer cancelled");
+        return;
+    }
+    printf("\nEnter Destination Account Number: ");
+    int desacc= readInt();
+    if(srcacc==desacc)
+    {
+        printf("\nYou cannot send money to your own account");
+        return;
+    }
+    int desIndex=-1;
+    for(int i=0; i< count; i++)
+    {
+        if(Bank[i].accountnumber== desacc)
+       {
+        desIndex= i;
+        break;
+       }
+    }
+    if(desIndex == -1 || !Bank[desIndex].Active)
+    {
+        printf("\nDestination account not found or inactive");
+        return;
+    } 
+    printf("\nEnter the amount you want to transfer: ");
+    float amount = readFloat();
+    if(amount<=0)
+    {
+        printf("\nAmount must be greater than zero");
+        return;
+    }
+    if(Bank[srcIndex].cash < amount)
+    {
+        printf("\nInsufficient balance! You only have %.2f", Bank[srcIndex].cash);
+        return;
+    }
+    Bank[srcIndex].cash -= amount;
+    Bank[desIndex].cash+=amount;
+    
+
+}
